@@ -71,13 +71,13 @@ RUN apt-get update -qq \
 
 # Install miniconda
 ENV PATH="/usr/local/miniconda/bin:$PATH"
-RUN curl -fsSL -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh && \
+RUN curl -fsSL -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py310_22.11.1-1-Linux-x86_64.sh && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
     rm miniconda.sh && \
     conda config --add channels conda-forge && \
-    conda install -y mkl=2020.0 mkl-service=2.3.0 numpy=1.18.1 nibabel=3.0.2 pandas=1.0.3 && sync && \
+    conda install -y mkl mkl-service numpy nibabel pandas && sync && \
     conda clean -tip && sync && \
-    /usr/local/miniconda/bin/pip install --no-cache-dir pybids==0.10.2
+    /usr/local/miniconda/bin/pip install --no-cache-dir pybids
 
 # Install connectome-workbench
 WORKDIR /opt
@@ -124,28 +124,48 @@ ENV HCPPIPEDIR_Templates=${HCPPIPEDIR}/global/templates \
 
 
 # Install FSL
-ARG FSL_VERSION="6.0.5.2"
-RUN curl https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-${FSL_VERSION}-centos8_64.tar.gz \
-         | tar -xz -C /usr/local && \
-          /usr/local/fsl/etc/fslconf/fslpython_install.sh -f /usr/local/fsl
+# FSL 6.0.5.1
+RUN apt-get update -qq \
+    && apt-get install -y -q --no-install-recommends \
+           bc \
+           dc \
+           file \
+           libfontconfig1 \
+           libfreetype6 \
+           libgl1-mesa-dev \
+           libgl1-mesa-dri \
+           libglu1-mesa-dev \
+           libgomp1 \
+           libice6 \
+           libxcursor1 \
+           libxft2 \
+           libxinerama1 \
+           libxrandr2 \
+           libxrender1 \
+           libxt6 \
+           sudo \
+           wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "Downloading FSL ..." \
+    && mkdir -p /opt/fsl-6.0.5.1 \
+    && curl -fsSL --retry 5 https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.5.1-centos7_64.tar.gz \
+    | tar -xz -C /opt/fsl-6.0.5.1 --strip-components 1
 
-
-# Configure environment
-ENV FSLDIR=/usr/local/fsl
-ENV FSL_DIR="${FSLDIR}" \
-    FSLOUTPUTTYPE=NIFTI_GZ \
-    PATH=${FSLDIR}/bin:$PATH \
-    FSLMULTIFILEQUIT=TRUE \
-    POSSUMDIR=${FSLDIR} \
-    LD_LIBRARY_PATH=${FSLDIR}/lib:$LD_LIBRARY_PATH \
-    FSLTCLSH=/usr/bin/tclsh \
-    FSLWISH=/usr/bin/wish \
-    FSLOUTPUTTYPE=NIFTI_GZ
+ENV FSLDIR="/opt/fsl-6.0.5.1" \
+    PATH="/opt/fsl-6.0.5.1/bin:$PATH" \
+    FSLOUTPUTTYPE="NIFTI_GZ" \
+    FSLMULTIFILEQUIT="TRUE" \
+    FSLLOCKDIR="" \
+    FSLMACHINELIST="" \
+    FSLREMOTECALL="" \
+    FSLGECUDAQ="cuda.q" \
+    LD_LIBRARY_PATH="/opt/fsl-6.0.5.1/lib:$LD_LIBRARY_PATH"
 
 # install gradient_unwarp.py (v1.2.0 with python 3 compatibility)
 WORKDIR /tmp
 ARG GRAD_UNWARP_VERSION="1.2.1"
-RUN wget -q https://github.com/Washington-University/gradunwarp/archive/refs/tags/v${GRAD_UNWARP_VERSION}.tar.gz && \
+RUN wget -q https://github.com/Washington-University/gradunwarp/archive/refs/tags/v1.2.1.zip && \
   unzip v${GRAD_UNWARP_VERSION}.zip && \
   cd gradunwarp-${GRAD_UNWARP_VERSION} && \
   python setup.py install && \

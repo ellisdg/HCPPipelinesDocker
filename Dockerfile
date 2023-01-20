@@ -1,4 +1,4 @@
-FROM ubuntu:xenial-20190515
+FROM ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV LANG="C.UTF-8" \
@@ -69,8 +69,7 @@ RUN apt-get update -qq \
     && /tmp/mcrtmp/install -destinationFolder /opt/matlabmcr-2017b -mode silent -agreeToLicense yes \
     && rm -rf /tmp/*
 
-# Install miniconda2
-# still need python 2 for gradunwarp
+# Install miniconda
 ENV PATH="/usr/local/miniconda/bin:$PATH"
 RUN curl -fsSL -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
@@ -96,7 +95,7 @@ ENV PATH="${CARET7DIR}:${PATH}"
 RUN apt-get -qq update && \
     apt-get install -yq --no-install-recommends gcc g++ libglu1 && \
     rm -rf /tmp/* && \
-    wget -qO- https://github.com/Washington-University/HCPpipelines/archive/v4.3.0.tar.gz | tar xz -C /tmp && \
+    wget -qO- https://github.com/Washington-University/HCPpipelines/archive/refs/tags/v4.7.0.tar.gz | tar xz -C /tmp && \
     mv /tmp/* /opt/HCP-Pipelines && \
     mkdir /opt/HCP-Pipelines/MSMBinaries && \
     wget -q https://github.com/ecr05/MSM_HOCR/releases/download/v3.0FSL/msm_ubuntu_v3 -O /opt/HCP-Pipelines/MSMBinaries/msm &&  \
@@ -123,16 +122,10 @@ ENV HCPPIPEDIR_Templates=${HCPPIPEDIR}/global/templates \
     MSMBINDIR=${HCPPIPEDIR}/MSMBinaries \
     MSMCONFIGDIR=${HCPPIPEDIR}/MSMConfig
 
-## Install the validator
-RUN wget -qO- https://deb.nodesource.com/setup_10.x | bash - && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends nodejs && \
-    npm install -g bids-validator@1.7.2 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install FSL
-RUN curl https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.2-centos6_64.tar.gz \
+ARG FSL_VERSION="6.0.5.2"
+RUN curl https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-${FSL_VERSION}-centos8_64.tar.gz \
          | tar -xz -C /usr/local && \
           /usr/local/fsl/etc/fslconf/fslpython_install.sh -f /usr/local/fsl
 
@@ -151,11 +144,12 @@ ENV FSL_DIR="${FSLDIR}" \
 
 # install gradient_unwarp.py (v1.2.0 with python 3 compatibility)
 WORKDIR /tmp
-RUN wget -q https://github.com/Washington-University/gradunwarp/archive/v1.2.0.zip && \
-  unzip v1.2.0.zip && \
-  cd gradunwarp-1.2.0 && \
+ARG GRAD_UNWARP_VERSION="1.2.1"
+RUN wget -q https://github.com/Washington-University/gradunwarp/archive/refs/tags/v${GRAD_UNWARP_VERSION}.tar.gz && \
+  unzip v${GRAD_UNWARP_VERSION}.zip && \
+  cd gradunwarp-${GRAD_UNWARP_VERSION} && \
   python setup.py install && \
-  rm -rf gradunwarp-1.2.0 v1.2.0.zip
+  rm -rf gradunwarp-${GRAD_UNWARP_VERSION} v${GRAD_UNWARP_VERSION}.zip
 
 # Install MCR 2017b
 ENV MATLABCMD="/opt/matlabmcr-2017b/v93/toolbox/matlab" \
@@ -167,9 +161,3 @@ RUN rm /opt/matlabmcr-2017b/v93/sys/os/glnxa64/libstdc++.so.6 && \
     ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /opt/matlabmcr-2017b/v93/sys/os/glnxa64/libstdc++.so.6
 
 
-
-COPY run.py version /
-RUN chmod +x /run.py
-
-
-ENTRYPOINT ["/run.py"]
